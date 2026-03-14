@@ -1,0 +1,61 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Virtual environment
+env/
+venv/
+.venv/
+ENV/
+
+# Backup archives
+*.rar
+*.zip
+*.tar.gz
+*.7z
+
+# Python
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+
+# Pytest / testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Pycache in ALL folders (nested)
+**/__pycache__/
+**/*.py[cod]
+
+# IDE / Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
