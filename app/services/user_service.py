@@ -10,11 +10,12 @@ from core.utils import generate_otp
 from services.email_service import EmailService
 from fastapi import status
 
+
 class UserCustomerService:
 
     @staticmethod
     async def register_user(db, payload):
-        async with db.begin():   # start transaction
+        async with db.begin():
 
             if await UserCustomerRepository.get_by_email(db, payload.email):
                 raise AppException(
@@ -22,7 +23,7 @@ class UserCustomerService:
                     error_desc="Email already registered"
                 )
 
-            if await UserCustomerRepository.get_by_username(db, payload.username):
+            if payload.username and await UserCustomerRepository.get_by_username(db, payload.username):
                 raise AppException(
                     error_code=status.HTTP_400_BAD_REQUEST,
                     error_desc="Username already exists"
@@ -31,18 +32,7 @@ class UserCustomerService:
             data = payload.model_dump()
             data["password"] = get_password_hash(data["password"])
 
-            # create user
             user = await UserCustomerRepository.create(db, data)
-
-            # return only safe fields
-            # user_data = {
-            #     "id": user.id,
-            #     "username": user.username,
-            #     "email": user.email,
-            #     "name": user.name,
-            # }
-
-            
 
             otp = generate_otp()
             expiry_time = current_dtts() + timedelta(minutes=settings.EMAIL_VERIFY_EXPIRE_MINUTES)
@@ -52,15 +42,14 @@ class UserCustomerService:
                 'otp_type' : settings.OTP_TYPE[0],
                 'expires_at' : expiry_time,
             }
-            
-            # create user otp
+
             otp_record = await UserOTPRepository.create_otp(db, user_otp_data)
 
-        # Send email AFTER transaction 
-        # response = await EmailService.send_email(
-        #     to_email=f"{user.email}",
-        #     subject="Test Email",
-        #     body=f"Hello {user.username}, Your OTP is : {otp}."
+        # Send email AFTER transaction
+        # await EmailService.send_email(
+        #     to_email=user.email,
+        #     subject="Verify your email",
+        #     body=f"Hello {user.username}, your OTP is: {otp}."
         # )
 
         return {
@@ -91,13 +80,11 @@ class UserCustomerService:
         access_token = create_access_token({"sub": user.id}, expires_delta=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         refresh_token = create_refresh_token()
 
-        await RefreshTokenRepository.create(db,
-            {
-                "token": refresh_token,
-                "user_id": user.id,
-                "expires_at": current_dtts() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
-            },
-        )
+        await RefreshTokenRepository.create(db, {
+            "token": refresh_token,
+            "user_id": user.id,
+            "expires_at": current_dtts() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        })
 
         return {
             "user": {
@@ -141,9 +128,7 @@ class UserCustomerService:
                 error_desc="Refresh token expired"
             )
 
-        new_access_token = create_access_token(
-            data={"sub": token_data.user_id}
-        )
+        new_access_token = create_access_token(data={"sub": token_data.user_id})
 
         return {
             "access_token": new_access_token,
@@ -157,7 +142,7 @@ class UserCustomerService:
         if not stored_otp:
             raise AppException(
                 error_code=status.HTTP_400_BAD_REQUEST,
-                error_desc="Something wents wrong, try to resend it"
+                error_desc="No OTP found, please request a new one"
             )
 
         if stored_otp.is_used:
@@ -190,24 +175,16 @@ class UserCustomerService:
         if not stored_otp:
             raise AppException(
                 error_code=status.HTTP_400_BAD_REQUEST,
-                error_desc="Something wents wrong."
-            )
-        
-        if stored_otp.is_used:
-            raise AppException(
-                error_code=status.HTTP_400_BAD_REQUEST,
-                error_desc="OTP already used"
+                error_desc="Something went wrong."
             )
 
         otp = generate_otp()
+        otp_record = await UserOTPRepository.upsert_otp(db, user_id, otp_type, otp)
 
-        # upsert user otp
-        otp_record = await UserOTPRepository.upsert_otp(db, user_id, settings.OTP_TYPE[0], otp)
-
-        # Send email AFTER transaction 
-        # response = await EmailService.send_email(
-        #     to_email=f"{email}",
-        #     subject="Test Email",
-        #     body=f"Hello {username}, Your OTP is : {otp}."
+        # Send email AFTER transaction
+        # await EmailService.send_email(
+        #     to_email=email,
+        #     subject="Your new OTP",
+        #     body=f"Hello {username}, your new OTP is: {otp}."
         # )
         return True

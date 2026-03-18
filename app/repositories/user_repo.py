@@ -12,7 +12,7 @@ class UserCustomerRepository:
     async def create(db: AsyncSession, user_data: dict):
         user = UserCustomerModel(**user_data)
         db.add(user)
-        await db.flush()    # push to DB without commit
+        await db.flush()
         await db.refresh(user)
         return user
 
@@ -44,13 +44,11 @@ class RefreshTokenRepository:
         db.add(token)
         await db.commit()
 
-
     @staticmethod
     async def delete_by_token(db: AsyncSession, token: str):
         stmt = delete(RefreshToken).where(RefreshToken.token == token)
         await db.execute(stmt)
         await db.commit()
-
 
     @staticmethod
     async def get_by_token(db: AsyncSession, refresh_token: str):
@@ -65,11 +63,9 @@ class UserOTPRepository:
     async def create_otp(db: AsyncSession, user_otp_data: dict):
         user = UserOTPModel(**user_otp_data)
         db.add(user)
-        await db.flush()    # push to DB without commit
+        await db.flush()
         await db.refresh(user)
         return user
-
-
 
     @staticmethod
     async def get_otp_detail(db: AsyncSession, user_id: int, otp_type: str):
@@ -79,8 +75,6 @@ class UserOTPRepository:
                 )
         result = await db.execute(stmt)
         return result.scalars().first()
-    
-
 
     @staticmethod
     async def change_otp_status(db: AsyncSession, user_id: int, otp_type: str):
@@ -96,11 +90,12 @@ class UserOTPRepository:
         )
 
         await db.execute(stmt)
+        await db.commit()
         
         
 
     @staticmethod
-    async def upsert_otp(db: AsyncSession, user_id: int, otp_type: str, new_otp: str,):
+    async def upsert_otp(db: AsyncSession, user_id: int, otp_type: str, new_otp: str):
         result = await db.execute(
             select(UserOTPModel).where(
                 UserOTPModel.user_id == user_id,
@@ -113,13 +108,15 @@ class UserOTPRepository:
 
         if otp_record:
             otp_record.otp_code = new_otp
-            otp_record.expiry_timestamp = expiry_time
+            otp_record.expires_at = expiry_time
+            otp_record.is_used = False
         else:
             otp_record = UserOTPModel(
                 user_id=user_id,
                 otp_type=otp_type,
                 otp_code=new_otp,
-                expiry_timestamp=expiry_time
+                expires_at=expiry_time,
+                is_used=False,
             )
             db.add(otp_record)
 
