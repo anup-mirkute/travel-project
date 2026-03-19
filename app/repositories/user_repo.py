@@ -34,7 +34,13 @@ class UserCustomerRepository:
         result = await db.execute(stmt)
         return result.scalars().first()
 
-
+    @staticmethod
+    async def update_password(db: AsyncSession, user_id: str, hashed_password: str):
+        """Update the hashed password for a given user_id."""
+        stmt = (
+            update(UserCustomerModel).where(UserCustomerModel.id == user_id).values(password=hashed_password).execution_options(synchronize_session="fetch")
+        )
+        await db.execute(stmt)
 
 class RefreshTokenRepository:
 
@@ -91,8 +97,6 @@ class UserOTPRepository:
 
         await db.execute(stmt)
         await db.commit()
-        
-        
 
     @staticmethod
     async def upsert_otp(db: AsyncSession, user_id: int, otp_type: str, new_otp: str):

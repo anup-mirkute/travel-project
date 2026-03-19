@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 from api.deps import get_db, get_cache
 
-from schemas.user_schema import UserCustomerCreateSchema, UserCustomerLoginSchema, UserCustomerLogoutSchema, UserCustomerOTPSchema
+from schemas.user_schema import *
 from repositories.user_repo import UserCustomerRepository
 from services.user_service import UserCustomerService
 from core.response import success_response, error_response
@@ -138,3 +138,15 @@ async def resend_email_verification(payload: UserCustomerOTPSchema, db: AsyncSes
     await db.commit()
 
     return success_response({"message": "OTP sent successfully"})
+
+
+@router.post("/forgot-password-request")
+async def forgot_password_request(payload: ForgotPasswordRequestSchema, db: AsyncSession = Depends(get_db)):
+    response = await UserCustomerService.forgot_password_request(db, payload)
+    return success_response(response)
+
+
+@router.post("/forgot-password-update")
+async def forgot_password_update(payload: ForgotPasswordUpdateSchema, db: AsyncSession = Depends(get_db)):
+    response = await UserCustomerService.forgot_password_update(db, payload)
+    return success_response(response)

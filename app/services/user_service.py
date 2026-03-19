@@ -188,3 +188,75 @@ class UserCustomerService:
         #     body=f"Hello {username}, your new OTP is: {otp}."
         # )
         return True
+
+    @staticmethod
+    async def forgot_password_request(db, payload):
+        user = None
+        if payload.email:
+            user = await UserCustomerRepository.get_by_email(db, payload.email)
+        if not user and payload.username:
+            user = await UserCustomerRepository.get_by_username(db, payload.username)
+ 
+        if not user:
+            return {
+                "message": "If an account with that email or username exists, an OTP has been sent."
+            }
+ 
+        if not user.is_active:
+            raise AppException(
+                error_code=status.HTTP_403_FORBIDDEN,
+                error_desc="Account is deactivated. Please active it."
+            )
+ 
+        otp = generate_otp()
+        otp_type = settings.OTP_TYPE[2]  # 'password_reset'
+
+        await UserOTPRepository.upsert_otp(db, user.id, otp_type, otp)
+        await db.commit()
+ 
+        # Send OTP to the user's registered email address
+        # await EmailService.send_email(
+        #     to_email=user.email,
+        #     subject="Password Reset OTP",
+        #     body=(
+        #         f"Hello {user.username},\n\n"
+        #         f"Your password reset OTP is: {otp}\n"
+        #         f"It is valid for {settings.EMAIL_VERIFY_EXPIRE_MINUTES} minutes.\n\n"
+        #         f"If you did not request this, please ignore this email."
+        #     )
+        # )
+ 
+        return {
+            "user_id": user.id,
+            "message": "If an account with that email or username exists, an OTP has been sent."
+        }
+
+        
+    @staticmethod
+    async def forgot_password_update(db, payload):
+
+        otp_type = settings.OTP_TYPE[2]  # 'password_reset'
+
+        user = await UserCustomerRepository.get_by_id(db, payload.user_id)
+        if not user:
+            raise AppException(
+                error_code=status.HTTP_404_NOT_FOUND,
+                error_desc="User not found"
+            )
+ 
+        if not user.is_active:
+            raise AppException(
+                error_code=status.HTTP_403_FORBIDDEN,
+                error_desc="Account is deactivated. Please contact support."
+            )
+ 
+        await UserCustomerService.verify_otp(db, payload.user_id, payload.otp, otp_type)
+ 
+        hashed_password = get_password_hash(payload.new_password)
+        await UserCustomerRepository.update_password(db, payload.user_id, hashed_password)
+        await db.commit()
+ 
+        return {
+            "message": "Password updated successfully. Please log in with your new password."
+        }
+ 
